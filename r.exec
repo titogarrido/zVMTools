@@ -1,0 +1,14 @@
+/* zVMTools                                       */
+/* Dependencies: No dependencies                  */
+/* Author: Esthon Medeiros                        */
+/* Updated by: Tito Garrido                       */
+/* Receives a file from the reader and open xedit */
+parse arg spid
+If spid == "" Then Do
+   Say "Plese use: R spid"
+   Exit
+   End
+'PIPE CP QUERY RDR 'USERID() spid' ALL | stem file.'
+parse var file.2 . . . . . . . . . fn ft .
+'receive 'spid' (rep'
+queue 'x 'fn ft a
