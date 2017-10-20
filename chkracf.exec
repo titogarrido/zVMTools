@@ -1,0 +1,86 @@
+/********************************************************************/
+/*  CHKRACF EXEC                                                    */
+/*  Check RACF disk usage and Service Machines                      */
+/*  Special privilege may be required                               */
+/*                                                                  */
+/*                                                                  */
+/*                                  Author: Tito Garrido Ogando     */
+/*                                  titog@br.ibm.com                */
+/*                                                                  */
+/********************************************************************/
+trace OFF                                         
+Address COMMAND                                   
+linkAccess('RACFVM' '301')                        
+linkAccess('RACFVM' '302')                        
+linkAccess('RACFSMF' '191')                       
+linkAccess('RACFSMF' '192')                       
+usage301=diskUsage('RCF301')                      
+usage302=diskUsage('RCF302')                      
+usage191=diskUsage('SMF191')                      
+usage192=diskUsage('SMF192')                      
+racf301=getPercent(usage301)                      
+racf302=getPercent(usage302)                      
+smf191=getPercent(usage191)                       
+smf192=getPercent(usage192)                       
+                                                  
+                                                  
+/*+-----------------------------------------+*/   
+/*| Create Output screen                    |*/   
+/*+-----------------------------------------+*/   
+   if Running?('RACFVM') then do                  
+     say 'RACFVM is running. It is ok'            
+   end                                                              
+   else                                                             
+     say '!ATTENTION! RACFVM is down'                               
+   if Running?('RACFSMF') then do                                   
+     say '!WARNING! RACFSMF is running'                             
+     say 'RACFSMF should be running just during the RACFVM rotation'
+     say 'If it is not rotating please log it off'                  
+   end                                                              
+   else                                                             
+     say 'RACFSMF is down. It is ok'                                
+   say '+----------------------+'                                   
+   say '| RACF 301 = ' racf301'%'                                   
+   say '| RACF 302 = ' racf302'%'                                   
+   say '| SMF  191 = ' smf191'%'                                    
+   say '| SMF  192 = ' smf192'%'                                    
+   say '+-----------------------'                                   
+Exit                                                                
+                                                                    
+Running?:                                                           
+/* See if a user is logged on */                                    
+arg user .                                         
+Parse value diagrc(8,'QUERY USER' user) with RC .  
+Return RC=0                                        
+                                                   
+/*+-----------------------------------------+*/    
+/*| Format disk usage xxxxx-yy              |*/    
+/*+-----------------------------------------+*/    
+getPercent:                                        
+  Procedure                                        
+  Arg usage                                        
+  if usage == 'QDISK' then                         
+    return '-'                                     
+                                                   
+  Parse VAR usage blksize "-" psize                
+  return psize                                     
+                                                   
+/*+-----------------------------------------+*/    
+/*| Check disk usage based on the CMS label |*/    
+/*+-----------------------------------------+*/    
+diskUsage:                                         
+  Procedure                                                      
+  Arg label                                                      
+  Address CMS                                                    
+  'PIPE CMS QUERY DISK | LOCATE /'label'/ | SPEC W9 | VAR qdisk' 
+  return qdisk                                                   
+                                                                 
+/*+-----------------------------------------+*/                  
+/*| Try to link and access a minidisk       |*/                  
+/*+-----------------------------------------+*/                  
+linkAccess:                                                      
+  Procedure                                                      
+  Arg vmid minidisk                                              
+  Address CMS                                                    
+  'PIPE CMS vmlink ' vmid minidisk ' | VAR vlink'                
+  return rc                                                      
