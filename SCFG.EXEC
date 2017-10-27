@@ -1,0 +1,75 @@
+/********************************************************************/
+/*  SCFG EXEC                                                       */
+/*  Open System Config and run CPSYNTAX on all members              */
+/*                                                                  */
+/*                                                                  */
+/*                                  Author: Tito Garrido Ogando     */
+/*                                  titog@br.ibm.com                */
+/*                                                                  */
+/********************************************************************/
+trace Off
+Address Command
+/* Try to link pmaint CF0 */
+'PIPE CP link pmaint cf0 cf0 mr | VAR linkout'
+linkrc=rc
+say 'linkrc -> ' linkrc
+linkedby = 'SUBWORD'(linkout,8,1)
+If linkrc <> 0 Then Do
+    say 'Error: ' linkout
+    say linkedby 'is using SYSTEM CONFIG, quitting'
+    exit 1
+    End
+Else
+    say 'CF0 linked as CF0 sucessfully'
+Address CMS
+/* Try to access CF0 as z */
+'access CF0 z'
+accrc=rc
+if accrc <> 0 Then Do
+    say 'Error accessing CF0'
+    exit 1
+    End
+Else
+    say 'CF0 accessed as z'
+/* Lets create a backup file before change anything */
+/* Format: C+Number of days of the year + minutes from midnight */
+
+'copy system config z = C'date(D)||time(M) ' ='
+if rc <> 0 then do
+ say 'Wow! Too Fast! Please wait a minute so we can save another backup'
+ exit 1
+ End
+Else
+ say 'Backup file created: SYSTEM C'date(D)||time(M)' z'
+/* access 193 to be able to execute CPSYNTAX */
+'acc 193 g'
+/* edit system config */
+'xedit SYSTEM CONFIG z'
+/* Are we using SSI? */
+'PIPE CP QUERY SSI | LOCATE /SSI Name/ | SPEC W3 | VAR THESSINAME'
+if THESSINAME <> "THESSINAME" then
+  inSSI = 'yes'
+Else
+  inSSI = 'no'
+/* If yes grab all members so we can run CPSYNTAX */
+
+if inSSI == 'yes' then do
+  say 'SSI detected. Running CPSYNTAX for all members'
+  /* 'PIPE CMS TYPE TEST TXT | stem qssi.' */
+  'PIPE CP QUERY SSI | stem qssi.'
+  Do i = 6 to 9
+    member='SUBWORD'(qssi.i,2,1)
+    if 'POS'(member, '--------') == 0 then do
+      say 'Member detected: ' member
+      'CPSYNTAX SYSTEM CONFIG Z (lpar * system ' member
+    End
+  End
+End
+Else do
+   say 'No SSI detected. Running CPSYNTAX'
+   'CPSYNTAX SYSTEM CONFIG Z'
+End
+/* release disks */
+'rel z (det'
+
+'rel g'
